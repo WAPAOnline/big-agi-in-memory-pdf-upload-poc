@@ -223,3 +223,43 @@ export async function embedPdf(pdfText: string, pineconeNamespace?: string, pine
   console.error(`embedPdf error: ${errorMessage}`);
   throw new Error(errorMessage);
 }
+
+/**
+ * Main function to use langchain send the chat to the assistant and receive a response (streaming)
+ */
+export async function sendMp3(mp3File: any) {
+  /**
+   * This function either returns the LLM response, or throws a descriptive error string
+   */
+
+  // this payload contains the 'api' key, org, host
+
+  let errorMessage: string;
+  try {
+    const response = await fetch('/api/files/mp3', {
+      method: 'POST',
+      // headers: { 'Content-Type': 'application/octet-stream' },
+      body: mp3File,
+    });
+
+    console.log('sendMp3 response', response);
+
+    if (response.ok) {
+      const json = await response.json();
+      return json;
+    }
+    // decode a possible error payload, if present, but ignore if missing
+    let errorPayload: any = null;
+    try {
+      errorPayload = await response.json();
+    } catch (error: any) {
+      // ignore - it's expected there may not be a payload
+    }
+    errorMessage = `issue fetching: ${response.status} · ${response.statusText}${errorPayload ? ' · ' + JSON.stringify(errorPayload) : ''}`;
+  } catch (error: any) {
+    errorMessage = `fetch error: ${error?.message || error?.toString() || 'Unknown error'}`;
+  }
+
+  console.error(`embedPdf error: ${errorMessage}`);
+  throw new Error(errorMessage);
+}

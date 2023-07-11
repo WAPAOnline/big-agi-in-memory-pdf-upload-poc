@@ -11,10 +11,20 @@ import { SxProps } from '@mui/joy/styles/types';
 import { AppLayout } from '@/common/layouts/AppLayout';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import StopOutlinedIcon from '@mui/icons-material/StopOutlined';
-import { embedPdf, queryPdfEndpoint } from 'src/apps/chat/util/agi-immediate';
+import { embedPdf, queryPdfEndpoint, sendMp3 } from 'src/apps/chat/util/agi-immediate';
 import { DMessage, createDMessage, useChatStore } from '@/common/state/store-chats';
 import { useSettingsStore } from '@/common/state/store-settings';
 import { ChatMessage } from 'src/apps/chat/components/message/ChatMessage';
+import * as mime from 'mime';
+
+function readFileAsArrayBuffer(file: File) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 function sanitizePineconeNamespace(text: string) {
   if (!text) return '';
@@ -55,7 +65,7 @@ async function getPineconeNamespaces() {
   throw new Error(errorMessage);
 }
 
-async function loadAndAttachFiles(files: FileList, appendToFilesArray) {
+async function loadAndAttachFiles(files: FileList, appendToFilesArray, context?: AudioContext | null) {
   // NOTE: we tried to get the common 'root prefix' of the files here, so that we could attach files with a name that's relative
   //       to the common root, but the files[].webkitRelativePath property is not providing that information
 
@@ -66,7 +76,41 @@ async function loadAndAttachFiles(files: FileList, appendToFilesArray) {
       if (file.type === 'application/pdf') {
         fileText = await pdfToText(file);
         console.log('fileText', fileText.length, fileText.slice(0, 100));
+      } else if (file.type === 'audio/mpeg') {
+        readFileAsArrayBuffer(file)
+          .then(async (arrayBuffer) => {
+            console.log('arrayBuffer', arrayBuffer, typeof arrayBuffer);
+            // @ts-ignore
+            const buffer = Buffer.from(arrayBuffer);
+            // const res = await sendMp3(buffer);
+            const fileCopy = {
+              ...file,
+              type: 'audio/mpeg',
+              name: file.name ?? 'audio.mp3',
+            };
+            const res = await sendMp3(fileCopy);
+            console.log('sendmp3 res', res);
+            // @ts-ignore
+            // context.decodeAudioData(arrayBuffer, function (buffer) {
+            //   console.log('buffer', buffer, typeof buffer);
+            //   // @ts-ignore
+
+            //   // const filename = `${name}.mp3`;
+            //   // let filepath = `${path.join('public', 'uploads', filename)}`;
+
+            //   // fs.writeFileSync(filepath, buffer);
+
+            //   // @ts-ignore
+            //   let blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+            //   console.log('blob', blob);
+            // });
+            // Now you can pass the arrayBuffer to the function that expects an ArrayBuffer
+          })
+          .catch((error) => {
+            console.error('Error reading file:', error);
+          });
       } else {
+        console.log('file.type', file.type);
         fileText = await file.text();
       }
       let fileName = sanitizePineconeNamespace(file.name);
@@ -126,6 +170,13 @@ export default function Files(props: { sx?: SxProps; conversationId: string }) {
   const [composeText, setComposeText] = React.useState('');
   const theme = useTheme();
 
+  const [context, setContext] = React.useState<AudioContext | null>(null);
+
+  useEffect(() => {
+    var context = new window.AudioContext();
+    setContext(context);
+  }, []);
+
   const appendToFilesArray = useCallback(
     (newFilesArray: any[]) => {
       const finalFilesArray = [...filesArray, ...newFilesArray];
@@ -138,7 +189,7 @@ export default function Files(props: { sx?: SxProps; conversationId: string }) {
     const files = e.target?.files;
     if (files && files.length >= 1) {
       setIsParsingFiles(true);
-      await loadAndAttachFiles(files, appendToFilesArray);
+      await loadAndAttachFiles(files, appendToFilesArray, context);
       setIsParsingFiles(false);
       return true;
     }
@@ -174,7 +225,7 @@ export default function Files(props: { sx?: SxProps; conversationId: string }) {
     // dropped files
     if (e.dataTransfer.files?.length >= 1) {
       setIsParsingFiles(true);
-      await loadAndAttachFiles(e.dataTransfer.files, appendToFilesArray);
+      await loadAndAttachFiles(e.dataTransfer.files, appendToFilesArray, context);
       setIsParsingFiles(false);
       return true;
     }
@@ -371,7 +422,7 @@ export default function Files(props: { sx?: SxProps; conversationId: string }) {
 
         {pineconeNamespaces?.length > 0 && (
           <>
-          {/* Maybe use a MUI joy component with a margin here? :-D */}
+            {/* Maybe use a MUI joy component with a margin here? :-D */}
             <br />
             <br />
             <br />

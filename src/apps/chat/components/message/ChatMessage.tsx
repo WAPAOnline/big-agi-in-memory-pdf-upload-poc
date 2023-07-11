@@ -95,15 +95,15 @@ export function makeAvatar(messageAvatar: string | null, messageRole: DMessage['
 
 function explainErrorInMessage(text: string, isAssistant: boolean, modelId?: string) {
   let errorMessage: React.JSX.Element | null = null;
-  const isAssistantError = isAssistant && (text.startsWith('[Issue] ') || text.startsWith('[OpenAI Issue]'));
+  const isAssistantError = isAssistant && (text?.startsWith('[Issue] ') || text?.startsWith('[OpenAI Issue]'));
   if (isAssistantError) {
-    if (text.startsWith('OpenAI API error: 429 Too Many Requests')) {
+    if (text?.startsWith('OpenAI API error: 429 Too Many Requests')) {
       // TODO: retry at the api/chat level a few times instead of showing this error
       errorMessage = <>
         The model appears to be occupied at the moment. Kindly select <b>GPT-3.5 Turbo</b>,
         or give it another go by selecting <b>Run again</b> from the message menu.
       </>;
-    } else if (text.includes('"model_not_found"')) {
+    } else if (text?.includes('"model_not_found"')) {
       // note that "model_not_found" is different than "The model `gpt-xyz` does not exist" message
       errorMessage = <>
         The API key appears to be unauthorized for {modelId || 'this model'}. You can change to <b>GPT-3.5
